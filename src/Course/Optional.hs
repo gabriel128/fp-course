@@ -79,7 +79,7 @@ Empty <+> b = b
 -- >>> optional (+1) 0 Empty
 -- 0
 optional :: (a -> b) -> b -> Optional a -> b
-optional f init = unliftOpt . (P.pure f P.<*>)
+optional f init = unliftOpt . mapOptional f
   where
     unliftOpt (Full a) = a
     unliftOpt Empty = init
