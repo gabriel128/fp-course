@@ -32,6 +32,11 @@ instance Monad ExactlyOne where
   (=<<) :: (a -> ExactlyOne b) -> ExactlyOne a -> ExactlyOne b
   f =<< (ExactlyOne x) = f x
 
+-- Left identity: return a >>= f ≡ f a
+
+-- Right identity: m >>= return ≡ m
+
+-- Associativity: (m >>= f) >>= g ≡ m >>= (\x -> f x >>= g)
 -- | Binds a function on a List.
 --
 -- >>> (\n -> n :. n :. Nil) =<< (1 :. 2 :. 3 :. Nil)
@@ -143,3 +148,45 @@ infixr 1 <=<
 instance Monad IO where
   (=<<) =
     (P.=<<)
+
+
+--- Law PROOFs ---
+
+-- instance Monad ExactlyOne where
+--   (=<<) :: (a -> ExactlyOne b) -> ExactlyOne a -> ExactlyOne b
+--   f =<< (ExactlyOne x) = f x
+--   (ExactlyOne x) >>= f = f x
+
+{-
+
+Observe:
+
+pure a = ExactlyOne a   - By pure definition
+
+-- Law: Left identity: pure a >>= f ≡ f a ------
+
+ExactlyOne a >>= f
+={By >>= def.}
+f a
+
+QEDMF
+
+
+
+-- Law: Right identity: f a >>= pure ≡ f a
+
+
+f a >>= pure
+={ExaclyOne def.}
+ExactlyOne a >>= pure
+={By >>= def.}
+pure a
+={Since a is in the ExactlyOne context}
+ExactlyOne a
+
+QEDMF
+
+-- Law: Associativity: (f a >>= f) >>= g ≡ f a >>= (\x -> f x >>= g)
+
+--TODO
+-}
