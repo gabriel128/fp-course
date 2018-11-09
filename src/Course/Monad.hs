@@ -122,7 +122,7 @@ join xs = id =<< xs
 
 (>>=) :: Monad f => f a -> (a -> f b) -> f b
 -- f >>= x = x =<< f
-f >>= g = undefined
+f >>= g = join (g <$> f)
 
 infixl 1 >>=
 
