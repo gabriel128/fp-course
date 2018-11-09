@@ -559,11 +559,8 @@ drop _ Nil =
 drop n (_:.xs) =
   drop (n-1) xs
 
-repeat ::
-  a
-  -> List a
-repeat x =
-  x :. repeat x
+repeat :: a -> List a
+repeat x = x :. repeat x
 
 replicate ::
   (Num n, Ord n) =>
