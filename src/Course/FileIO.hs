@@ -117,7 +117,7 @@ run (Full path) = readFile path >>=
 --   files <- getFiles content
 --   printFiles files
 
-sequenceMap :: Monad m => (a -> m b) -> List a -> m (List b)
+sequenceMap :: Applicative f => (a -> f b) -> List a -> f (List b)
 sequenceMap f = sequence . (<$>) f
 
 voidSequenceMap :: Monad m => (a -> m b) -> List a -> m ()
