@@ -662,3 +662,7 @@ instance P.Monad List where
     flip flatMap
   return =
     (:. Nil)
+
+optionalHead :: List a -> Optional a
+optionalHead Nil = Empty
+optionalHead (x :. _) = Full x

@@ -123,16 +123,9 @@ sequenceMap f = sequence . (<$>) f
 voidSequenceMap :: Monad m => (a -> m b) -> List a -> m ()
 voidSequenceMap f = void . sequenceMap f
 
-optionalPath :: List FilePath -> IO (Optional FilePath)
-optionalPath Nil = return Empty
-optionalPath (path :. _) = return (Full path)
-
 -- /Tip:/ use @getArgs@ and @run@
 main :: IO ()
-main = do
-  paths <- getArgs
-  path <- optionalPath paths
-  run path
+main = getArgs >>= \paths -> run (optionalHead paths)
 
 ----
 
