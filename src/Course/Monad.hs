@@ -20,10 +20,7 @@ import qualified Prelude as P((=<<))
 --   `∀f g x. g =<< (f =<< x) ≅ ((g =<<) . f) =<< x`
 class Applicative f => Monad f where
   -- Pronounced, bind.
-  (=<<) ::
-    (a -> f b)
-    -> f a
-    -> f b
+  (=<<) :: (a -> f b) -> f a -> f b
 
 infixr 1 =<<
 
@@ -32,48 +29,39 @@ infixr 1 =<<
 -- >>> (\x -> ExactlyOne(x+1)) =<< ExactlyOne 2
 -- ExactlyOne 3
 instance Monad ExactlyOne where
-  (=<<) ::
-    (a -> ExactlyOne b)
-    -> ExactlyOne a
-    -> ExactlyOne b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance ExactlyOne"
+  (=<<) :: (a -> ExactlyOne b) -> ExactlyOne a -> ExactlyOne b
+  f =<< (ExactlyOne x) = f x
 
+-- Left identity: return a >>= f ≡ f a
+
+-- Right identity: m >>= return ≡ m
+
+-- Associativity: (m >>= f) >>= g ≡ m >>= (\x -> f x >>= g)
 -- | Binds a function on a List.
 --
 -- >>> (\n -> n :. n :. Nil) =<< (1 :. 2 :. 3 :. Nil)
 -- [1,1,2,2,3,3]
 instance Monad List where
-  (=<<) ::
-    (a -> List b)
-    -> List a
-    -> List b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance List"
+  (=<<) :: (a -> List b) -> List a -> List b
+  f =<< xs = flatten . map f $ xs
 
 -- | Binds a function on an Optional.
 --
 -- >>> (\n -> Full (n + n)) =<< Full 7
 -- Full 14
 instance Monad Optional where
-  (=<<) ::
-    (a -> Optional b)
-    -> Optional a
-    -> Optional b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance Optional"
+  (=<<) :: (a -> Optional b) -> Optional a -> Optional b
+  _ =<< Empty = Empty
+  f =<< (Full x) = f x
 
 -- | Binds a function on the reader ((->) t).
 --
 -- >>> ((*) =<< (+10)) 7
 -- 119
 instance Monad ((->) t) where
-  (=<<) ::
-    (a -> ((->) t b))
-    -> ((->) t a)
-    -> ((->) t b)
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance ((->) t)"
+  -- (=<<) :: (a -> (t -> b)) -> (t -> a) -> (t -> b)
+  (=<<) :: (a -> ((->) t b)) -> ((->) t a) -> ((->) t b)
+  (f =<< g) x = f (g x) x
 
 -- | Witness that all things with (=<<) and (<$>) also have (<*>).
 --
@@ -106,13 +94,8 @@ instance Monad ((->) t) where
 --
 -- >>> ((*) <**> (+2)) 3
 -- 15
-(<**>) ::
-  Monad f =>
-  f (a -> b)
-  -> f a
-  -> f b
-(<**>) =
-  error "todo: Course.Monad#(<**>)"
+(<**>) :: Monad f => f (a -> b) -> f a -> f b
+(<**>) = (<*>)
 
 infixl 4 <**>
 
@@ -129,12 +112,9 @@ infixl 4 <**>
 --
 -- >>> join (+) 7
 -- 14
-join ::
-  Monad f =>
-  f (f a)
-  -> f a
-join =
-  error "todo: Course.Monad#join"
+join :: Monad f => f (f a) -> f a
+join xs = id =<< xs
+
 
 -- | Implement a flipped version of @(=<<)@, however, use only
 -- @join@ and @(<$>)@.
@@ -142,13 +122,12 @@ join =
 --
 -- >>> ((+10) >>= (*)) 7
 -- 119
-(>>=) ::
-  Monad f =>
-  f a
-  -> (a -> f b)
-  -> f b
-(>>=) =
-  error "todo: Course.Monad#(>>=)"
+-- >>> ExactlyOne 2 >>= (\x -> ExactlyOne(x+1))
+-- ExactlyOne 3
+
+(>>=) :: Monad f => f a -> (a -> f b) -> f b
+-- f >>= x = x =<< f
+f >>= g = join (g <$> f)
 
 infixl 1 >>=
 
@@ -157,14 +136,8 @@ infixl 1 >>=
 --
 -- >>> ((\n -> n :. n :. Nil) <=< (\n -> n+1 :. n+2 :. Nil)) 1
 -- [2,2,3,3]
-(<=<) ::
-  Monad f =>
-  (b -> f c)
-  -> (a -> f b)
-  -> a
-  -> f c
-(<=<) =
-  error "todo: Course.Monad#(<=<)"
+(<=<) :: Monad f => (b -> f c) -> (a -> f b) -> a -> f c
+(<=<) f g a =  f =<< g a
 
 infixr 1 <=<
 
@@ -175,3 +148,45 @@ infixr 1 <=<
 instance Monad IO where
   (=<<) =
     (P.=<<)
+
+
+--- Law PROOFs ---
+
+-- instance Monad ExactlyOne where
+--   (=<<) :: (a -> ExactlyOne b) -> ExactlyOne a -> ExactlyOne b
+--   f =<< (ExactlyOne x) = f x
+--   (ExactlyOne x) >>= f = f x
+
+{-
+
+Observe:
+
+pure a = ExactlyOne a   - By pure definition
+
+-- Law: Left identity: pure a >>= f ≡ f a ------
+
+ExactlyOne a >>= f
+={By >>= def.}
+f a
+
+QEDMF
+
+
+
+-- Law: Right identity: f a >>= pure ≡ f a
+
+
+f a >>= pure
+={ExaclyOne def.}
+ExactlyOne a >>= pure
+={By >>= def.}
+pure a
+={Since a is in the ExactlyOne context}
+ExactlyOne a
+
+QEDMF
+
+-- Law: Associativity: (f a >>= f) >>= g ≡ f a >>= (\x -> f x >>= g)
+
+--TODO
+-}
