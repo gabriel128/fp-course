@@ -106,9 +106,6 @@ instance Monad (State s) where
 -- >>> let p x = (\s -> (const $ pure (x == 'c')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
 -- (Full 'c',3)
 --
--- >>> let p x = (\s -> ) =<< get in runState p 0
--- (Full 'c',3)
---
 -- >>> let p x = (\s -> (const $ pure (x == 'i')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
 -- (Empty,8)
 findM :: Monad f => (a -> f Bool) -> List a -> f (Optional a)
@@ -125,18 +122,6 @@ findM p (x :. xs) = p x >>= (\b -> if b then pure (Full x) else findM p xs)
 -- prop> \xs -> case firstRepeat xs of Empty -> True; Full x -> let (l, (rx :. rs)) = span (/= x) xs in let (l2, r2) = span (/= x) rs in let l3 = hlist (l ++ (rx :. Nil) ++ l2) in nub l3 == l3
 
 
-{-
-firstRepeat (1 :. 2 :. 1 :. Nil)
-(\xs -> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1) [1,2,2,3]
-case firstRepeat xs of
-      Empty -> let xs' = hlist xs in nub xs' == xs'
-      Full x -> length (filter (== x) xs) > 1
-
--}
-
--- >>> let p x = (\s -> (const $ pure (x == 'c')) =<< put (1+s)) =<< get in runState (findM p $ listh ['a'..'h']) 0
--- (Full 'c',3)
-
 firstRepeat :: Ord a => List a -> Optional a
 firstRepeat Nil = Empty
 firstRepeat (y :. ys) = found $ eval (findM p ys) ()
@@ -151,12 +136,15 @@ firstRepeat (y :. ys) = found $ eval (findM p ys) ()
 -- prop> \xs -> firstRepeat (distinct xs) == Empty
 --
 -- prop> \xs -> distinct xs == distinct (flatMap (\x -> x :. x :. Nil) xs)
+
+fromSet :: Ord a => S.Set a -> List a
+fromSet = listh . S.toList
+
 distinct :: Ord a => List a -> List a
-distinct xs = listh . S.toList . S.fromList $ hlist xs
--- distinct Nil = Nil
--- distinct (x:xs) = eval $ x
---   where
---     asSet = S.fromList $ hlist xs
+distinct xs = fromSet $ exec (foldRight reducer get xs) S.empty
+  where
+    reducer x acc = acc >>= \a -> State (\s -> (a, S.insert x s))
+-- distinct xs = listh . S.toList . S.fromList $ hlist xs
 
 chain :: (Int, P.String)
 chain = runState (State (\s -> (1, 'a' : s)) >>= (\a -> State (\s' -> (1 + a, 'b' : s')))) ""
