@@ -178,7 +178,7 @@ computeHapiness x xs
   | otherwise = computeHapiness x squareSumState
       where
         squareSumState = xs >>= (\a -> State (\s -> (a + 1, nextState s)))
-        nextState = digits . toInteger . sum . map (P.^2)
+        nextState = digits . toInteger . sum . map (join (*))
 
 digits :: Integer -> List Int
 digits 0 = Nil
