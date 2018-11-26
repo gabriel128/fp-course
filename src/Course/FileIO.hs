@@ -10,6 +10,7 @@ import Course.Applicative
 import Course.Monad
 import Course.Functor
 import Course.List
+import Course.Optional
 
 {-
 
@@ -39,7 +40,7 @@ Problem --
 
 Consideration --
   Try to avoid repetition. Factor out any common expressions.
-  
+
 Example --
 Given file files.txt, containing:
   a.txt
@@ -61,7 +62,7 @@ To test this module, load ghci in the root of the project directory, and do
 Example output:
 
 $ ghci
-GHCi, version ... 
+GHCi, version ...
 Loading package...
 Loading ...
 [ 1 of 28] Compiling (etc...
@@ -81,50 +82,50 @@ the contents of c
 
 -- Given the file name, and file contents, print them.
 -- Use @putStrLn@.
-printFile ::
-  FilePath
-  -> Chars
-  -> IO ()
-printFile =
-  error "todo: Course.FileIO#printFile"
+printFile :: FilePath -> Chars -> IO ()
+printFile path chars = putStrLn ("The path: " ++  path ++ ". The chars: " ++ chars)
 
 -- Given a list of (file name and file contents), print each.
 -- Use @printFile@.
-printFiles ::
-  List (FilePath, Chars)
-  -> IO ()
-printFiles =
-  error "todo: Course.FileIO#printFiles"
+printFiles :: List (FilePath, Chars) -> IO ()
+printFiles = voidSequenceMap $ uncurry printFile
 
 -- Given a file name, return (file name and file contents).
 -- Use @readFile@.
-getFile ::
-  FilePath
-  -> IO (FilePath, Chars)
-getFile =
-  error "todo: Course.FileIO#getFile"
+getFile :: FilePath -> IO (FilePath, Chars)
+getFile path = readFile path >>= \content -> return (path, content)
+-- getFile path = do
+--   content <- readFile path
+--   return (path, content)
+
 
 -- Given a list of file names, return list of (file name and file contents).
 -- Use @getFile@.
-getFiles ::
-  List FilePath
-  -> IO (List (FilePath, Chars))
-getFiles =
-  error "todo: Course.FileIO#getFiles"
+getFiles :: List FilePath -> IO (List (FilePath, Chars))
+getFiles = sequenceMap getFile
 
 -- Given a file name, read it and for each line in that file, read and print contents of each.
 -- Use @getFiles@ and @printFiles@.
-run ::
-  FilePath
-  -> IO ()
-run =
-  error "todo: Course.FileIO#run"
+run :: Optional FilePath -> IO ()
+run Empty = putStrLn "Something went wrong"
+run (Full path) = readFile path >>=
+  \file -> getFiles (lines file) >>=
+  \files -> printFiles files
+-- run path = do
+--   file <- readFile path
+--   let content = lines file
+--   files <- getFiles content
+--   printFiles files
+
+sequenceMap :: Applicative f => (a -> f b) -> List a -> f (List b)
+sequenceMap f = sequence . (<$>) f
+
+voidSequenceMap :: Monad m => (a -> m b) -> List a -> m ()
+voidSequenceMap f = void . sequenceMap f
 
 -- /Tip:/ use @getArgs@ and @run@
-main ::
-  IO ()
-main =
-  error "todo: Course.FileIO#main"
+main :: IO ()
+main = getArgs >>= \paths -> run (optionalHead paths)
 
 ----
 
