@@ -121,7 +121,6 @@ findM p (x :. xs) = p x >>= (\b -> if b then pure (Full x) else findM p xs)
 -- prop> \xs -> case firstRepeat xs of Empty -> let xs' = hlist xs in nub xs' == xs'; Full x -> length (filter (== x) xs) > 1
 -- prop> \xs -> case firstRepeat xs of Empty -> True; Full x -> let (l, (rx :. rs)) = span (/= x) xs in let (l2, r2) = span (/= x) rs in let l3 = hlist (l ++ (rx :. Nil) ++ l2) in nub l3 == l3
 
-
 firstRepeat :: Ord a => List a -> Optional a
 firstRepeat Nil = Empty
 firstRepeat (y :. ys) = found $ eval (findM p ys) ()
@@ -170,7 +169,16 @@ chain = runState (State (\s -> (1, 'a' : s)) >>= (\a -> State (\s' -> (1 + a, 'b
 -- >>> isHappy 44
 -- True
 isHappy :: Integer -> Bool
-isHappy x = computeHapiness x (digits x) 0
+isHappy x = computeHapiness x (State (const (0, digits x)))
+
+computeHapiness :: Integer -> State (List Int) Integer -> Bool
+computeHapiness x xs
+  | digitsToNumber (exec xs Nil) == x &&  (eval xs Nil) > 0 = False
+  | (exec xs Nil) == (1 :. Nil) && (eval xs Nil) > 0 = True
+  | otherwise = computeHapiness x squareSumState
+      where
+        squareSumState = xs >>= (\a -> State (\s -> (a + 1, nextState s)))
+        nextState = digits . toInteger . sum . map (P.^2)
 
 digits :: Integer -> List Int
 digits 0 = Nil
@@ -182,10 +190,10 @@ digitsToNumber ys = toInteger $ go (reverse ys) 1
     go Nil _ = 0
     go (x :. xs) mult = x * mult + go xs (mult * 10)
 
-computeHapiness :: Integer -> List Int -> Integer -> Bool
-computeHapiness x xs n
-  | digitsToNumber xs == x &&  n > 0 = False
-  | xs == (1 :. Nil) && n > 0 = True
-  | otherwise = computeHapiness x (digits squareSum) (n+1)
-      where
-        squareSum = toInteger . sum . map (P.^2) $ xs
+-- computeHapiness' :: Integer -> List Int -> Integer -> Bool
+-- computeHapiness' x xs n
+--   | digitsToNumber xs == x &&  n > 0 = False
+--   | xs == (1 :. Nil) && n > 0 = True
+--   | otherwise = computeHapiness' x (digits squareSum) (n+1)
+--       where
+--         squareSum = toInteger . sum . map (P.^2) $ xs
