@@ -75,8 +75,10 @@ instance Applicative (State s) where
   pure :: a -> State s a
   pure a = State (\s -> (a, s))
   (<*>) :: State s (a -> b) -> State s a -> State s b
-  fs <*> s = State (\initState -> ((eval fs initState) (eval s initState), newState initState))
+  fs <*> s = State (\initState -> (f initState (x initState), newState initState))
     where
+      f = eval fs
+      x = eval s
       newState initState = exec s $ exec fs initState
 
 -- | Implement the `Bind` instance for `State s`.
