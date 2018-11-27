@@ -189,9 +189,13 @@ digits = reverse . map P.fromIntegral . unfoldr p
     p x = Full (x `mod` 10, x `div` 10)
 
 digitsToNumber :: List Int -> Integer
-digitsToNumber = snd . foldRight reducer (1, 0)
+digitsToNumber xs = exec (foldRight reducer (pure 1) xs) 0
   where
-    reducer x (mult, acc) = (mult * 10, toInteger x * mult + acc)
+    reducer x oldState = oldState >>= (\mult -> State (\acc -> (mult * 10, toInteger x * mult + acc)))
+
+-- digitsToNumber = snd . foldRight reducer (1, 0)
+--   where
+--     reducer x (mult, acc) = (mult * 10, toInteger x * mult + acc)
 
 -- computeHapiness' :: Integer -> List Int -> Integer -> Bool
 -- computeHapiness' x xs n
