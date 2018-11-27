@@ -170,8 +170,8 @@ chain = runState (State (\s -> (1, 'a' : s)) >>= (\a -> State (\s' -> (1 + a, 'b
 --
 -- >>> isHappy 44
 -- True
-isHappy :: Integer -> Bool
-isHappy x = computeHapiness x (State (const (0, digits x)))
+-- isHappy :: Integer -> Bool
+-- isHappy x = computeHapiness x (State (const (0, digits x)))
 
 computeHapiness :: Integer -> State (List Int) Integer -> Bool
 computeHapiness x xs
@@ -183,14 +183,15 @@ computeHapiness x xs
         nextState = digits . toInteger . sum . map (join (*))
 
 digits :: Integer -> List Int
-digits 0 = Nil
-digits x = reverse $ P.fromIntegral (x `mod` 10) :. digits (x `div` 10)
+digits = reverse . map P.fromIntegral . unfoldr p
+  where
+    p 0 = Empty
+    p x = Full (x `mod` 10, x `div` 10)
 
 digitsToNumber :: List Int -> Integer
-digitsToNumber ys = toInteger $ go (reverse ys) 1
+digitsToNumber = snd . foldRight reducer (1, 0)
   where
-    go Nil _ = 0
-    go (x :. xs) mult = x * mult + go xs (mult * 10)
+    reducer x (mult, acc) = (mult * 10, toInteger x * mult + acc)
 
 -- computeHapiness' :: Integer -> List Int -> Integer -> Bool
 -- computeHapiness' x xs n
