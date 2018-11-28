@@ -204,3 +204,31 @@ digitsToNumber xs = exec (foldRight reducer (pure 1) xs) 0
 --   | otherwise = computeHapiness' x (digits squareSum) (n+1)
 --       where
 --         squareSum = toInteger . sum . map (P.^2) $ xs
+
+{-
+create a *roll calculator*... so, write a set of functions that manipulate some number on the resultant value of a `State` Monad value, and have these functions also write a string to an array of strings held inside the `State` value. You should use `State (List String) Integer` and at the end, you should be able to run an expression like this: `add 5 >>= add 3 >>= subtract 2 >>= multiply 23 >>= divide 2` and have the resultant log and the correct result be printed out to the screen. You can run it across a few different numbers and try it out.
+-}
+
+type Log = P.String
+
+operation :: (Integer -> Integer -> Integer) -> Log -> Integer -> Integer -> State (List (List Char)) Integer
+operation f logref x total = State (\s -> (total `f` x, s ++ log))
+  where
+    log = (listh logref ++ listh " " ++ show' x) :. Nil
+
+
+add :: Integer -> Integer ->  State (List (List Char)) Integer
+add = operation (+) "Added"
+
+subtract :: Integer -> Integer ->  State (List (List Char)) Integer
+subtract = operation (-) "Subtracted"
+
+multiply :: Integer -> Integer ->  State (List (List Char)) Integer
+multiply = operation (*) "Multiplied"
+
+divide :: Integer -> Integer ->  State (List (List Char)) Integer
+divide = operation div "Divided"
+
+
+julianCalculation :: (Integer, List (List Char))
+julianCalculation = runState (pure 0 >>= add 5 >>= add 3 >>= subtract 2 >>= multiply 23 >>= divide 2) Nil
