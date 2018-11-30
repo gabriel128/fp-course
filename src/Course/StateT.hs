@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -152,7 +153,13 @@ distinct'' xs = go
 -- >>> distinctF $ listh [1,2,3,2,1,101]
 -- Empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
-distinctF = filtering (\x -> pure (x < 100)) . distinct'
+distinctF xs = reverse <$> evalT (filtering p xs) S.empty
+  where
+    p x
+      | x < 100 = StateT (\s -> Full (S.notMember x s, S.insert x s))
+      | otherwise = StateT (const Empty)
+
+-- distinctF = filtering (\x -> pure (x < 100)) . distinct'
 
 -- | An `OptionalT` is a functor of an `Optional` value.
 data OptionalT f a = OptionalT {runOptionalT :: f (Optional a)}
@@ -198,14 +205,12 @@ instance Functor f => Functor (OptionalT f) where
 -- [Full 2,Full 3,Empty]
 instance Monad f => Applicative (OptionalT f) where
   pure a = OptionalT (pure . pure $ a)
-  -- (<*>) :: forall a b. OptionalT f (Optional (a -> b)) -> OptionalT f (Optional a) -> OptionalT f (Optional b)
   (<*>) :: forall a b. OptionalT f (a -> b) -> OptionalT f a -> OptionalT f b
   (OptionalT f) <*> (OptionalT val) = OptionalT appf
     where
-      appf = do
-        optFun <- f
-        optVal <- val
-        return (optFun <*> optVal)
+      appf = f >>= \h -> onFull applyVal h
+      applyVal :: (a -> b) -> f (Optional b)
+      applyVal g = val >>= \optVal -> pure (g <$> optVal)
 
 -- | Implement the `Monad` instance for `OptionalT f` given a Monad f.
 --
@@ -270,8 +275,19 @@ log1 l = Logger (l :. Nil)
 --
 -- >>> distinctG $ listh [1,2,3,2,6,106]
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
+
+-- data Logger l a = Logger (List l) a deriving (Eq, Show)
+-- data OptionalT f a = OptionalT {runOptionalT :: f (Optional a)}
+
 distinctG :: (Integral a, Show a) => List a -> Logger Chars (Optional (List a))
-distinctG = error "todo: Course.StateT#distinctG"
+distinctG xs = filterEmptyness $ runOptionalT (evalT (filtering p (reverse xs)) S.empty)
+  where
+    filterEmptyness (Logger log vals) = Logger (filter (not . isEmpty) log) (reverse <$> vals)
+    logFilter x = if even x then "even number: " ++ show' x else Nil
+    p x
+      | x < 100 = StateT (\s -> OptionalT (log1 (logFilter x) (Full (S.notMember x s, S.insert x s))))
+      | otherwise = StateT (\s -> OptionalT (log1 ("aborting > 100: " ++ show' x) Empty))
+
 
 onFull :: Applicative f => (t -> f (Optional a)) -> Optional t -> f (Optional a)
 onFull g o =
