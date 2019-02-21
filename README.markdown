@@ -14,7 +14,7 @@ looking for the *answers* (not the exercises), please go to https://github.com/t
 #### Special note 2
 
 As of February 2017, this repository is taking the place of the repository hosted at
-https://github.com/NICTA/course which is deprecated. 
+https://github.com/NICTA/course which is deprecated.
 
 Data61 replaces what was NICTA since July 2016. The new repository is located at
 https://github.com/data61/fp-course.
@@ -176,10 +176,13 @@ module, tests for each function are grouped using the `testGroup` function.
 Within each test group there are test cases (`testCase` function), and
 properties (`testProperty` function).
 
+Before running the tests, ensure that you have an up-to-date installation
+of GHC and cabal-install from your system package manager or use the minimal
+installers found at [haskell.org](https://www.haskell.org/downloads#minimal).
+
 To run the full test suite, build the project as follows:
 
     > cabal update
-    > cabal install cabal-install
     > cabal install --only-dependencies --enable-tests
     > cabal configure --enable-tests
     > cabal build
@@ -439,13 +442,13 @@ What about these two programs?
 
     def writeFile(filename, contents):
         with open(filename, "w") as f:
-        f.write(contents)
+            f.write(contents)
 
     def readFile(filename):
         contents = ""
         with open(filename, "r") as f:
-        contents = f.read()
-        return contents
+            contents = f.read()
+            return contents
 
     def p1():
         file = "/tmp/file"
