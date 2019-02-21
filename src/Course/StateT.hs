@@ -5,7 +5,7 @@
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Course.StateT1 where
+module Course.StateT where
 
 import Course.Core
 import Course.ExactlyOne
