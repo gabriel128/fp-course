@@ -80,7 +80,7 @@ instance Applicative (State s) where
                           (a, s') = runState state s
                        in (f a, s'))
 
--- | Implement the `Bind` instance for `State s`.
+-- | Implement the `Monad` instance for `State s`.
 --
 -- >>> runState ((const $ put 2) =<< put 1) 0
 -- ((),2)
