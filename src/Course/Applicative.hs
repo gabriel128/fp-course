@@ -302,6 +302,23 @@ filtering fp = foldRight (\x fys -> conditionalAppender x <$> fp x <*> fys) (pur
   where
     conditionalAppender x p = if p then (x :.) else id
 
+{-
+
+filtering (\a -> if a > 13 then Empty else Full (a <= 7)) (4 :. 5 :. 6 :. Nil)  = Full [4,5,6]
+
+p = (\a -> if a > 13 then Empty else Full (a <= 7))
+
+filtering (\a -> if a > 13 then Empty else Full (a <= 7)) (4 :. 5 :. 6 :. Nil)
+=
+foldRight (\x fys -> conditionalAppender x <$> fp x <*> fys) (pure Nil) (4 :. 5 :. 6 :. Nil)
+  where
+    conditionalAppender x p = if p then (x :.) else id
+=
+
+foldRight (\4 (Full Nil) -> (\p -> if p then (4 :.) else id) <$> (Full True) <*> (Full Nil)) (5 :. 6 :. Nil)
+
+-}
+
 
 -- ExactlyOne (4 :.) <*> (ExactlyOne id <*> (ExactlyOne (6 :.) <*> ExactlyOne Nil))
 -- =

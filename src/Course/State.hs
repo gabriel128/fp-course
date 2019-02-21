@@ -43,7 +43,7 @@ eval s = fst . runState s
 -- >>> runState get 0
 -- (0,0)
 get :: State s s
-get = State (\s -> (s, s))
+get = State (join (,))
 
 -- | A `State` where the resulting state is seeded with the given value.
 --
@@ -75,11 +75,10 @@ instance Applicative (State s) where
   pure :: a -> State s a
   pure a = State (\s -> (a, s))
   (<*>) :: State s (a -> b) -> State s a -> State s b
-  fs <*> s = State (\initState -> (f initState (x initState), newState initState))
-    where
-      f = eval fs
-      x = eval s
-      newState initState = exec s $ exec fs initState
+  fs <*> state = State (\x ->
+                      let (f, s) = runState fs x
+                          (a, s') = runState state s
+                       in (f a, s'))
 
 -- | Implement the `Bind` instance for `State s`.
 --
@@ -141,10 +140,18 @@ firstRepeat (y :. ys) = found $ eval (findM p ys) ()
 fromSet :: Ord a => S.Set a -> List a
 fromSet = listh . S.toList
 
-distinct :: Ord a => List a -> List a
-distinct xs = fromSet $ exec (foldRight reducer get xs) S.empty
-  where
-    reducer x acc = acc >>= \a -> State (\s -> (a, S.insert x s))
+-- distinct :: Ord a => List a -> List a
+-- distinct = do
+  -- xs <- get
+  -- return xs
+
+  -- eval (filtering p xs) S.empty
+  -- where
+  --   p x = State (\s -> (True, S.insert x s))
+
+-- distinct xs = fromSet $ exec (foldRight reducer get xs) S.empty
+--   where
+--     reducer x acc = acc >>= \a -> State (\s -> (a, S.insert x s))
 -- distinct xs = listh . S.toList . S.fromList $ hlist xs
 
 chain :: (Int, P.String)
@@ -170,8 +177,8 @@ chain = runState (State (\s -> (1, 'a' : s)) >>= (\a -> State (\s' -> (1 + a, 'b
 --
 -- >>> isHappy 44
 -- True
--- isHappy :: Integer -> Bool
--- isHappy x = computeHapiness x (State (const (0, digits x)))
+isHappy :: Integer -> Bool
+isHappy x = computeHapiness x (State (const (0, digits x)))
 
 computeHapiness :: Integer -> State (List Int) Integer -> Bool
 computeHapiness x xs
