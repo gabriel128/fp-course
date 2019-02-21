@@ -1,11 +1,10 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Course.StateT1 where
+module Course.StateT where
 
 import Course.Core
 import Course.ExactlyOne
@@ -24,7 +23,17 @@ import qualified Prelude as P
 -- >>> instance Arbitrary a => Arbitrary (List a) where arbitrary = P.fmap listh arbitrary
 
 -- | A `StateT` is a function from a state value `s` to a functor f of (a produced value `a`, and a resulting state `s`).
-newtype StateT s f a = StateT {runStateT :: s -> f (a, s)}
+newtype StateT s f a =
+  StateT {runStateT :: s -> f (a, s)}
+
+liftTwice :: Functor f => (a -> b) -> f (f a) -> f (f b)
+liftTwice = (<$>) . (<$>)
+
+fmap :: Functor f => (a -> b) -> f a -> f b
+fmap = (<$>)
+
+mapFst :: (a -> b) -> (a, s) -> (b, s)
+mapFst f (a, s) = (f a, s)
 
 -- | Implement the `Functor` instance for @StateT s f@ given a @Functor f@.
 --
@@ -32,7 +41,7 @@ newtype StateT s f a = StateT {runStateT :: s -> f (a, s)}
 -- [(3,0)]
 instance Functor f => Functor (StateT s f) where
   (<$>) :: (a -> b) -> StateT s f a -> StateT s f b
-  f <$> (StateT stateFn) = StateT (\s -> (\(a, s') -> (f a, s')) <$> stateFn s)
+  f <$> (StateT fas) = StateT $ (fmap . mapFst) f . fas
 
 -- | Implement the `Applicative` instance for @StateT s f@ given a @Monad f@.
 --
@@ -54,18 +63,28 @@ instance Functor f => Functor (StateT s f) where
 instance Monad f => Applicative (StateT s f) where
   pure :: a -> StateT s f a
   pure a = StateT (\s -> pure (a, s))
-  (StateT stateF) <*> (StateT stateV) = StateT (\s -> stateV s >>= doApp)
-    where
-      doApp (a, s) = stateF s >>= (\(f', s') -> pure (f' a, s'))
+  (<*>) :: StateT s f (a -> b) -> StateT s f a -> StateT s f b
+  (StateT fab) <*> (StateT sfa) = StateT stateF
+      where
+        stateF s = do
+          (f, s') <- fab s
+          (a, s'') <- sfa s'
+          pure (f a, s'')
 
+
+-- | Implement the `Monad` instance for @StateT s f@ given a @Monad f@.
+-- Make sure the state value is passed through in `bind`.
+--
+-- >>> runStateT ((const $ putT 2) =<< putT 1) 0
+-- ((),2)
+--
 -- >>> let modify f = StateT (\s -> pure ((), f s)) in runStateT (modify (+1) >>= \() -> modify (*2)) 7
 -- ((),16)
 instance Monad f => Monad (StateT s f) where
-  (=<<) :: forall a b. (a -> StateT s f b) -> StateT s f a -> StateT s f b
-  g =<< (StateT stateTFn)  = StateT (\s -> stateTFn s >>= mon)
-    where
-      mon :: Monad f => (a, s) -> f (b, s)
-      mon (a, s) = runStateT (g a) s
+  (=<<) :: (a -> StateT s f b) -> StateT s f a -> StateT s f b
+  f =<< (StateT sfa) = StateT stateF
+     where
+       stateF s = sfa s >>= uncurry runStateT . mapFst f
 
 -- | A `State'` is `StateT` specialised to the `ExactlyOne` functor.
 type State' s a = StateT s ExactlyOne a
@@ -75,26 +94,27 @@ type State' s a = StateT s ExactlyOne a
 -- >>> runStateT (state' $ runState $ put 1) 0
 -- ExactlyOne  ((),1)
 state' :: (s -> (a, s)) -> State' s a
-state' f =  StateT (pure . f)
+state' f = StateT $ pure . f
 
 -- | Provide an unwrapper for `State'` values.
 --
 -- >>> runState' (state' $ runState $ put 1) 0
 -- ((),1)
 runState' :: State' s a -> s -> (a, s)
-runState' (StateT fs) = runExactlyOne . fs
+runState' state = runExactlyOne . runStateT state
+
 
 -- | Run the `StateT` seeded with `s` and retrieve the resulting state.
 execT :: Functor f => StateT s f a -> s -> f s
-execT (StateT f) s = snd <$> f s
+execT state = fmap snd . runStateT state
 
 -- | Run the `State` seeded with `s` and retrieve the resulting state.
 exec' :: State' s a -> s -> s
-exec' state = snd . runState' state
+exec' state = runExactlyOne . execT state
 
 -- | Run the `StateT` seeded with `s` and retrieve the resulting value.
 evalT :: Functor f => StateT s f a -> s -> f a
-evalT (StateT f) s = fst <$> f s
+evalT state = fmap fst . runStateT state
 
 -- | Run the `State'` seeded with `s` and retrieve the resulting value.
 eval' :: State' s a -> s -> a
@@ -115,7 +135,7 @@ getT = StateT (\s -> pure (s, s))
 -- >>> runStateT (putT 2 :: StateT Int List ()) 0
 -- [((),2)]
 putT :: Applicative f => s -> StateT s f ()
-putT s = StateT (\_ -> pure ((), s))
+putT s = StateT $ const $ pure ((), s)
 
 -- | Remove all duplicate elements in a `List`.
 --
@@ -123,24 +143,8 @@ putT s = StateT (\_ -> pure ((), s))
 --
 -- prop> \xs -> distinct' xs == distinct' (flatMap (\x -> x :. x :. Nil) xs)
 distinct' :: (Ord a, Num a) => List a -> List a
-distinct' xs = eval' (filtering p xs) S.empty
-  where
-    p x = StateT (\s -> ExactlyOne (S.notMember x s, S.insert x s))
+distinct' = error "todo: Course.StateT#distinct'"
 
-distinct'' :: (Ord a, Num a) => List a -> List a
-distinct'' xs = go
-  where
-    initState = StateT (\s' -> ExactlyOne (Nil, s'))
-    go = eval' (foldRight reducer initState xs) S.empty
-    reducer x acc = acc >>=
-      \a -> StateT (\s -> if S.member x s
-                          then ExactlyOne (a, s)
-                          else ExactlyOne (x :. a, S.insert x s))
-      -- (\a -> if S.member x a
-      --        then StateT (\s' -> ExactlyOne (a, s'))
-      --        else StateT (\s' -> ExactlyOne (S.insert x a, x :. s')))
-
--- chain' = runStateT (StateT (\s -> ExactlyOne (0, "a" :. s )) >>= (\a -> StateT (\s' -> ExactlyOne (a + 1, "b" :. s')))) Nil
 -- | Remove all duplicate elements in a `List`.
 -- However, if you see a value greater than `100` in the list,
 -- abort the computation by producing `Empty`.
@@ -153,23 +157,19 @@ distinct'' xs = go
 -- >>> distinctF $ listh [1,2,3,2,1,101]
 -- Empty
 distinctF :: (Ord a, Num a) => List a -> Optional (List a)
-distinctF xs = reverse <$> evalT (filtering p xs) S.empty
-  where
-    p x
-      | x < 100 = StateT (\s -> Full (S.notMember x s, S.insert x s))
-      | otherwise = StateT (const Empty)
-
--- distinctF = filtering (\x -> pure (x < 100)) . distinct'
+distinctF = error "todo: Course.StateT#distinctF"
 
 -- | An `OptionalT` is a functor of an `Optional` value.
-data OptionalT f a = OptionalT {runOptionalT :: f (Optional a)}
+data OptionalT f a = OptionalT {
+    runOptionalT :: f (Optional a)
+  }
 
 -- | Implement the `Functor` instance for `OptionalT f` given a Functor f.
 --
 -- >>> runOptionalT $ (+1) <$> OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Empty]
 instance Functor f => Functor (OptionalT f) where
-  f <$> (OptionalT funct) = OptionalT (((<$>) . (<$>)) f funct)
+  (<$>) = error "todo: Course.StateT (<$>)#instance (OptionalT f)"
 
 -- | Implement the `Applicative` instance for `OptionalT f` given a Monad f.
 --
@@ -195,49 +195,32 @@ instance Functor f => Functor (OptionalT f) where
 --
 -- >>> runOptionalT $ OptionalT (Full (+1) :. Full (+2) :. Nil) <*> OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Empty,Full 3,Empty]
-
--- onFull :: Applicative f => (t -> f (Optional a)) -> Optional t -> f (Optional a)
--- onFull g o =
---   case o of
---     Empty -> pure Empty
---     Full a -> g a
--- >>> runOptionalT $ OptionalT (Full (+1) :. Empty :. Nil) <*> OptionalT (Full 1 :. Full 2 :. Nil)
--- [Full 2,Full 3,Empty]
 instance Monad f => Applicative (OptionalT f) where
-  pure = OptionalT . pure . pure
-  (<*>) :: forall a b. OptionalT f (a -> b) -> OptionalT f a -> OptionalT f b
-  -- (OptionalT f) <*> (OptionalT val) = OptionalT ((<*>) <$> f <*> val)
-  (OptionalT f) <*> (OptionalT val) = OptionalT (lift2 (<*>) f val)
-
-    -- OptionalT appf
-    -- where
-    --   appf = f >>= \h -> onFull applyVal h
-    --   applyVal :: (a -> b) -> f (Optional b)
-    --   applyVal g = val >>= \optVal -> pure (g <$> optVal)
+  pure =
+    error "todo: Course.StateT pure#instance (OptionalT f)"
+  (<*>) =
+    error "todo: Course.StateT (<*>)#instance (OptionalT f)"
 
 -- | Implement the `Monad` instance for `OptionalT f` given a Monad f.
 --
 -- >>> runOptionalT $ (\a -> OptionalT (Full (a+1) :. Full (a+2) :. Nil)) =<< OptionalT (Full 1 :. Empty :. Nil)
 -- [Full 2,Full 3,Empty]
 instance Monad f => Monad (OptionalT f) where
-  -- (=<<) :: (a -> OptionalT f (Optional b)) -> OptionalT f (Optional a) -> OptionalT f (Optional b)
-  f =<< (OptionalT mon) = undefined
-    -- OptionalT $ mon >>= runOptionalT . f
-
-  -- (mon >>= doMon)
-  --   where
-  --     doMon (Full a) = runOptionalT (f a)
-  --     doMon Empty = pure Empty
+  (=<<) =
+    error "todo: Course.StateT (=<<)#instance (OptionalT f)"
 
 -- | A `Logger` is a pair of a list of log values (`[l]`) and an arbitrary value (`a`).
-data Logger l a = Logger (List l) a deriving (Eq, Show)
+data Logger l a =
+  Logger (List l) a
+  deriving (Eq, Show)
 
 -- | Implement the `Functor` instance for `Logger
 --
 -- >>> (+3) <$> Logger (listh [1,2]) 3
 -- Logger [1,2] 6
 instance Functor (Logger l) where
-  f <$> (Logger list log) = Logger list (f log)
+  (<$>) =
+    error "todo: Course.StateT (<$>)#instance (Logger l)"
 
 -- | Implement the `Applicative` instance for `Logger`.
 --
@@ -247,8 +230,10 @@ instance Functor (Logger l) where
 -- >>> Logger (listh [1,2]) (+7) <*> Logger (listh [3,4]) 3
 -- Logger [1,2,3,4] 10
 instance Applicative (Logger l) where
-  pure = Logger Nil
-  (Logger list f) <*> (Logger list' val) = Logger (list ++ list') (f val)
+  pure =
+    error "todo: Course.StateT pure#instance (Logger l)"
+  (<*>) =
+    error "todo: Course.StateT (<*>)#instance (Logger l)"
 
 -- | Implement the `Monad` instance for `Logger`.
 -- The `bind` implementation must append log values to maintain associativity.
@@ -256,16 +241,19 @@ instance Applicative (Logger l) where
 -- >>> (\a -> Logger (listh [4,5]) (a+3)) =<< Logger (listh [1,2]) 3
 -- Logger [1,2,4,5] 6
 instance Monad (Logger l) where
-  f =<< (Logger list val) = g $ f val
-     where
-       g (Logger list' a) = Logger (list ++ list') a
+  (=<<) =
+    error "todo: Course.StateT (=<<)#instance (Logger l)"
 
 -- | A utility function for producing a `Logger` with one log value.
 --
 -- >>> log1 1 2
 -- Logger [1] 2
-log1 :: l -> a -> Logger l a
-log1 l = Logger (l :. Nil)
+log1 ::
+  l
+  -> a
+  -> Logger l a
+log1 =
+  error "todo: Course.StateT#log1"
 
 -- | Remove all duplicate integers from a list. Produce a log as you go.
 -- If there is an element above 100, then abort the entire computation and produce no result.
@@ -281,22 +269,21 @@ log1 l = Logger (l :. Nil)
 --
 -- >>> distinctG $ listh [1,2,3,2,6,106]
 -- Logger ["even number: 2","even number: 2","even number: 6","aborting > 100: 106"] Empty
+distinctG ::
+  (Integral a, Show a) =>
+  List a
+  -> Logger Chars (Optional (List a))
+distinctG =
+  error "todo: Course.StateT#distinctG"
 
--- data Logger l a = Logger (List l) a deriving (Eq, Show)
--- data OptionalT f a = OptionalT {runOptionalT :: f (Optional a)}
-
-distinctG :: (Integral a, Show a) => List a -> Logger Chars (Optional (List a))
-distinctG xs = filterEmptyness $ runOptionalT (evalT (filtering p (reverse xs)) S.empty)
-  where
-    filterEmptyness (Logger log vals) = Logger (filter (not . isEmpty) log) (reverse <$> vals)
-    logFilter x = if even x then "even number: " ++ show' x else Nil
-    p x
-      | x < 100 = StateT (\s -> OptionalT (log1 (logFilter x) (Full (S.notMember x s, S.insert x s))))
-      | otherwise = StateT (\s -> OptionalT (log1 ("aborting > 100: " ++ show' x) Empty))
-
-
-onFull :: Applicative f => (t -> f (Optional a)) -> Optional t -> f (Optional a)
+onFull ::
+  Applicative f =>
+  (t -> f (Optional a))
+  -> Optional t
+  -> f (Optional a)
 onFull g o =
   case o of
-    Empty -> pure Empty
-    Full a -> g a
+    Empty ->
+      pure Empty
+    Full a ->
+      g a
