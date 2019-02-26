@@ -9,6 +9,7 @@ import Course.ExactlyOne
 import Course.List
 import Course.Optional
 import Course.Functor
+import Course.Applicative
 
 -- | All instances of the `Extend` type-class must satisfy one law. This law
 -- is not checked by the compiler. This law is given as:
@@ -27,7 +28,7 @@ infixr 1 <<=
 -- ExactlyOne (ExactlyOne 7)
 instance Extend ExactlyOne where
   (<<=) :: (ExactlyOne a -> b) -> ExactlyOne a -> ExactlyOne b
-  f <<= oneA =  ExactlyOne $ f oneA
+  f <<= oneA =  pure $ f oneA
 
 -- | Implement the @Extend@ instance for @List@.
 --
