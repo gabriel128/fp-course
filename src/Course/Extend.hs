@@ -28,7 +28,7 @@ infixr 1 <<=
 -- ExactlyOne (ExactlyOne 7)
 instance Extend ExactlyOne where
   (<<=) :: (ExactlyOne a -> b) -> ExactlyOne a -> ExactlyOne b
-  f <<= oneA =  pure $ f oneA
+  f <<= oneA =  ExactlyOne $ f oneA
 
 -- | Implement the @Extend@ instance for @List@.
 --
