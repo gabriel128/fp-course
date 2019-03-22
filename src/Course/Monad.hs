@@ -112,6 +112,16 @@ infixl 4 <**>
 --
 -- >>> join (+) 7
 -- 14
+
+-- 1) Implement (>>=) in terms of fmap (or liftM) and join.
+
+bind2 :: Monad f => f a -> (a -> f b) -> f b
+bind2 x f = join $ f <$> x
+-- 2) Now implement join and fmap (liftM) in terms of (>>=) and return.
+
+fmap2 :: Monad f => (a -> b) -> f a -> f b
+fmap2 f x = x >>= (return . f)
+
 join :: Monad f => f (f a) -> f a
 join xs = id =<< xs
 
