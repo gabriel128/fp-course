@@ -433,10 +433,7 @@ zipWith f (a:.as) (b:.bs) =
 zipWith _ _  _ =
   Nil
 
-unfoldr ::
-  (a -> Optional (b, a))
-  -> a
-  -> List b
+unfoldr :: (a -> Optional (b, a)) -> a -> List b
 unfoldr f b  =
   case f b of
     Full (a, z) -> a :. unfoldr f z

@@ -140,7 +140,7 @@ firstRepeat (y :. ys) = found $ eval (findM p ys) ()
 fromSet :: Ord a => S.Set a -> List a
 fromSet = listh . S.toList
 
--- distinct :: Ord a => List a -> List a
+distinct :: Ord a => List a -> List a
 -- distinct = do
   -- xs <- get
   -- return xs
@@ -152,7 +152,7 @@ fromSet = listh . S.toList
 -- distinct xs = fromSet $ exec (foldRight reducer get xs) S.empty
 --   where
 --     reducer x acc = acc >>= \a -> State (\s -> (a, S.insert x s))
--- distinct xs = listh . S.toList . S.fromList $ hlist xs
+distinct xs = listh . S.toList . S.fromList $ hlist xs
 
 chain :: (Int, P.String)
 chain = runState (State (\s -> (1, 'a' : s)) >>= (\a -> State (\s' -> (1 + a, 'b' : s')))) ""
